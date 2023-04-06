@@ -34,6 +34,8 @@ pub fn create_module() -> SyncModule<Ctx> {
             return Ok(vec![WasmVal::I32(0)]);
         };
         let bar = unsafe { bindings::create_bar(data) };
+        // 如果返回是 .h 中定义的 struct 的指针的话，就存入 ctx，然后返回一个 index
+        // 根据 .h 中，不同类型生成各自的 vec
         let bar_ptr = ctx.insert_bar(bar) as i32;
         Ok(vec![WasmVal::I32(bar_ptr)])
     }
@@ -57,11 +59,15 @@ pub fn create_module() -> SyncModule<Ctx> {
         } else {
             return Ok(vec![WasmVal::I32(0)]);
         };
+        // 这个 Foo 是分配在 wasm 里面的
         let mut foo = *foo;
+        // 如果在 c 里面是一个指针的话，就从 ctx 用这个 index 去寻找原本的 native 的数据，交换进 foo
+        // 这里是核心
         let foo_bar = foo.b as usize;
         foo.b = ctx.bars[foo_bar] as *mut bindings::Bar;
-
+        // 然后再拿去调用 native 的 function
         unsafe { bindings::print_foo_bar(foo) };
+        // 如果不 move Foo 过来的话，就要在调用完成之后把 bar 的 index 再次交换回去
         Ok(vec![])
     }
     let ctx = Ctx { bars: vec![] };
